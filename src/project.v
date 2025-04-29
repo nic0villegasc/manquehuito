@@ -1,7 +1,9 @@
-/*
- * Copyright (c) 2024 Your Name
- * SPDX-License-Identifier: Apache-2.0
- */
+// Copyright 2025 Universidad de los Andes, Chile
+// Solderpad Hardware License, Version 0.51, see LICENSE for details.
+// SPDX-License-Identifier: SHL-0.51
+//
+// Authors:
+// - Nicolás Villegas <navillegas@miuandes.cl>
 
 `default_nettype none
 

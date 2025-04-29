@@ -13,19 +13,38 @@
 //              Outputs result and ZNCV flags: Zero, Negative, Carry, Overflow.
 // -----------------------------------------------------------------------------
 module alu (
-  input  logic [7:0]  a_i,    // Operand A
-  input  logic [7:0]  b_i,    // Operand B
-  input  logic [2:0]  sel_i,  // Operation select
-  output logic [7:0]  out_o,  // Result
-  output logic [3:0]  zncv_o  // Flags: Z, N, C, V
+  input  logic [7:0]  a_i,
+  input  logic [7:0]  b_i,
+  input  logic [2:0]  sel_i,
+  output logic [7:0]  out_o,
+  output logic [3:0]  zncv_o
 );
 
-  logic [8:0] sub_ext;
+  logic [8:0] result_ext;
+  logic       carry, overflow;
 
   always_comb begin
+    // Default values
+    result_ext = 9'b0;
+    carry      = 1'b0;
+    overflow   = 1'b0;
+    out_o      = 8'b0;
+
     unique case (sel_i)
-      3'b000: out_o = a_i + b_i;
-      3'b001: out_o = a_i - b_i;
+      3'b000: begin // ADD
+        result_ext = a_i + b_i;
+        out_o      = result_ext[7:0];
+        carry      = result_ext[8];
+        overflow   = ~(a_i[7] ^ b_i[7]) & (a_i[7] ^ out_o[7]);
+      end
+
+      3'b001: begin // SUB
+        result_ext = {1'b0, a_i} - {1'b0, b_i};
+        out_o      = result_ext[7:0];
+        carry      = result_ext[8];
+        overflow   = (a_i[7] ^ b_i[7]) & (a_i[7] ^ out_o[7]);
+      end
+
       3'b010: out_o = a_i & b_i;
       3'b011: out_o = a_i | b_i;
       3'b100: out_o = ~a_i;
@@ -34,11 +53,12 @@ module alu (
       3'b111: out_o = a_i >> 1;
     endcase
 
-    sub_ext      = a_i - b_i;
-    zncv_o[3]    = (sub_ext[7:0] == 8'b0);              // Z: result is zero
-    zncv_o[2]    = sub_ext[7];                          // N: negative result
-    zncv_o[1]    = sub_ext[8];                          // C: carry out
-    zncv_o[0]    = (a_i[7] == b_i[7]) && (a_i[7] != sub_ext[7]); // V: signed overflow
+    // Flags
+    zncv_o[3] = (out_o == 8'b0);   // Z
+    zncv_o[2] = out_o[7];          // N
+    zncv_o[1] = carry;             // C
+    zncv_o[0] = overflow;          // V
   end
 
-endmodule : alu
+
+endmodule
