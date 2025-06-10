@@ -69,7 +69,6 @@ module spi_master #(
   reg [7:0]  data_to_write_r;
   reg        read_not_write_r;
   reg [1:0]  num_bytes_to_transfer_r;
-  reg [7:0]  command_r;
 
   // SCLK generation
   reg [($clog2(CLOCK_DIVIDER*2))-1:0] sclk_divider_cnt_q;
@@ -103,7 +102,12 @@ module spi_master #(
       internal_sclk_q    <= 1'b0; // SCLK idle low for Mode 0
       spi_sclk_o         <= 1'b0;
     end else begin
-      if (busy_o && current_state_q != ST_IDLE && current_state_q != ST_START_TRANSACTION && current_state_q != ST_END_TRANSACTION && current_state_q != ST_DONE_PULSE) begin
+      if (busy_o
+          && current_state_q != ST_IDLE 
+          && current_state_q != ST_START_TRANSACTION 
+          && current_state_q != ST_END_TRANSACTION 
+          && current_state_q != ST_DONE_PULSE) begin
+
         if (sclk_divider_cnt_q == (CLOCK_DIVIDER*2 - 1)) begin
           sclk_divider_cnt_q <= 0;
         end else begin
@@ -151,6 +155,7 @@ module spi_master #(
       transaction_done_o <= 1'b0;
     end else begin
       current_state_q   <= next_state_d;
+
       busy_o            <= (next_state_d != ST_IDLE && next_state_d != ST_DONE_PULSE);
       spi_cs_o          <= (next_state_d == ST_IDLE || next_state_d == ST_DONE_PULSE) ? 1'b1 : 1'b0;
       transaction_done_o<= (current_state_q == ST_END_TRANSACTION && next_state_d == ST_DONE_PULSE); // Pulse for one cycle
@@ -161,7 +166,6 @@ module spi_master #(
         data_to_write_r         <= data_to_write_i;
         read_not_write_r        <= read_not_write_i;
         num_bytes_to_transfer_r <= num_bytes_to_transfer_i;
-        command_r               <= read_not_write_i ? CMD_READ : CMD_WRITE;
       end
 
       // Bit counter logic (active during shifting states)
@@ -292,27 +296,6 @@ module spi_master #(
         next_state_d = ST_IDLE;
       end
     endcase
-    
-    // Reset bit counter for next byte/phase, done in combinational logic based on next_state_d
-    // to ensure it's ready for the new state's first bit.
-    if ((next_state_d == ST_SEND_COMMAND && current_state_q != ST_SEND_COMMAND) ||
-        (next_state_d == ST_SEND_ADDR_BYTE1 && current_state_q != ST_SEND_ADDR_BYTE1) ||
-        (next_state_d == ST_SEND_ADDR_BYTE2 && current_state_q != ST_SEND_ADDR_BYTE2) ||
-        (next_state_d == ST_SEND_DATA_BYTE1 && current_state_q != ST_SEND_DATA_BYTE1) ||
-        (next_state_d == ST_RECEIVE_DATA_BYTE1 && current_state_q != ST_RECEIVE_DATA_BYTE1) ||
-        (next_state_d == ST_RECEIVE_DATA_BYTE2 && current_state_q != ST_RECEIVE_DATA_BYTE2)) begin
-      // This assignment will be seen by bit_counter_q on the next clock edge
-      // However, for immediate use in the *next* cycle's bit shifting,
-      // this needs careful thought or bit_counter is directly assigned based on next_state_d.
-      // The sequential block already handles bit_counter_q update.
-      // The primary role here is to ensure that when a new shifting state is entered,
-      // the bit counter will be at its starting position (7 for MSB first).
-      // The sequential block already resets to 7 when not actively decrementing.
-      // Let's ensure it gets set to 7 when transitioning TO a shifting state.
-      // This is implicitly handled if bit_counter_q is only decremented when active.
-      // If we reset bit_counter_q in the sequential block upon state change to a shifting state:
-      // This logic might be redundant or could be simplified in the sequential part.
-    end
   end
   
   // Sequential assignment for bit_counter_q based on state transitions
