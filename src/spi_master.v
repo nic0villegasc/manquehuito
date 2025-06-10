@@ -167,21 +167,6 @@ module spi_master #(
         read_not_write_r        <= read_not_write_i;
         num_bytes_to_transfer_r <= num_bytes_to_transfer_i;
       end
-
-      // Bit counter logic (active during shifting states)
-      if (sclk_rising_edge && 
-         (current_state_q == ST_SEND_COMMAND || 
-          current_state_q == ST_SEND_ADDR_BYTE1 || 
-          current_state_q == ST_SEND_ADDR_BYTE2 ||
-          current_state_q == ST_SEND_DATA_BYTE1 ||
-          current_state_q == ST_RECEIVE_DATA_BYTE1 ||
-          current_state_q == ST_RECEIVE_DATA_BYTE2)) begin
-        if (bit_counter_q == 3'd0) begin
-          // Counter will be reset when transitioning to next data byte/phase
-        end else begin
-          bit_counter_q <= bit_counter_q - 1;
-        end
-      end
       
       // MOSI shift register logic (data loaded before state, shifted on falling edge for mode 0)
       if (next_state_d == ST_SEND_COMMAND && current_state_q == ST_START_TRANSACTION) begin
