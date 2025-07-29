@@ -1,0 +1,56 @@
+[*]
+[*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
+[*] Tue Jul 29 16:16:50 2025
+[*]
+[dumpfile] "/home/zerotoasic/manquehuito/test/test_spi/dump.vcd"
+[dumpfile_mtime] "Tue Jul 29 16:00:06 2025"
+[dumpfile_size] 23824
+[savefile] "/home/zerotoasic/manquehuito/test/test_spi/slave_analysis.gtkw"
+[timestart] 1303000
+[size] 1850 863
+[pos] -27 -24
+*-18.000000 1510001 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] tb_spi.
+[sst_width] 297
+[signals_width] 381
+[sst_expanded] 1
+[sst_vpaned_height] 249
+@28
+tb_spi.SLAVE.spi_rst_n_i
+tb_spi.SLAVE.spi_cs_i
+tb_spi.SLAVE.spi_sclk_i
+@200
+-
+@2022
+^1 /home/zerotoasic/manquehuito/test/test_spi/fsm_states_slave.map
+tb_spi.SLAVE.state_reg[2:0]
+@200
+-
+@24
+tb_spi.SLAVE.bit_count[2:0]
+@c00029
+tb_spi.SLAVE.mosi_shifter[7:0]
+@28
+(0)tb_spi.SLAVE.mosi_shifter[7:0]
+(1)tb_spi.SLAVE.mosi_shifter[7:0]
+(2)tb_spi.SLAVE.mosi_shifter[7:0]
+(3)tb_spi.SLAVE.mosi_shifter[7:0]
+(4)tb_spi.SLAVE.mosi_shifter[7:0]
+(5)tb_spi.SLAVE.mosi_shifter[7:0]
+(6)tb_spi.SLAVE.mosi_shifter[7:0]
+(7)tb_spi.SLAVE.mosi_shifter[7:0]
+@1401209
+-group_end
+@200
+-
+@28
+tb_spi.SLAVE.addr_byte_count
+@22
+tb_spi.SLAVE.addr_reg[15:0]
+tb_spi.SLAVE.cmd_reg[7:0]
+tb_spi.SLAVE.miso_shifter[7:0]
+@28
+tb_spi.SLAVE.spi_miso_o
+tb_spi.SLAVE.spi_mosi_i
+[pattern_trace] 1
+[pattern_trace] 0
