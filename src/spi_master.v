@@ -89,6 +89,10 @@ module spi_master #(
   wire sclk_falling_edge;
   wire sclk_tick; // Indicates one SCLK half period is done
 
+  wire byte_transfer_complete;
+  reg last_bit_sampled_q;
+  assign byte_transfer_complete = last_bit_sampled_q && sclk_falling_edge;
+
   // SCLK Generation Logic
   // sclk_divider_cnt_q counts from 0 to (CLOCK_DIVIDER - 1) for each SCLK phase (half period)
   // internal_sclk_q toggles when sclk_divider_cnt_q reaches CLOCK_DIVIDER-1
@@ -145,14 +149,15 @@ module spi_master #(
   // State Machine - Sequential Part
   always @(posedge clk_core_i or negedge rst_n_i) begin
     if (!rst_n_i) begin
-      current_state_q <= ST_IDLE;
-      busy_o          <= 1'b0;
-      spi_cs_o        <= 1'b1; // Chip select inactive high
-      bit_counter_q   <= 3'd7; // For MSB first
+      current_state_q    <= ST_IDLE;
+      miso_shift_reg_q   <= 8'b0;
+      busy_o             <= 1'b0;
+      spi_cs_o           <= 1'b1; // Chip select inactive high
       // Outputs reset
-      data_read_byte1_o <= 8'h00;
-      data_read_byte2_o <= 8'h00;
+      data_read_byte1_o  <= 8'h00;
+      data_read_byte2_o  <= 8'h00;
       transaction_done_o <= 1'b0;
+      last_bit_sampled_q <= 1'b0;
     end else begin
       current_state_q   <= next_state_d;
 
@@ -178,10 +183,10 @@ module spi_master #(
       end else if (next_state_d == ST_SEND_DATA_BYTE1 && current_state_q == ST_SEND_ADDR_BYTE2) begin
         mosi_shift_reg_q <= data_to_write_r;
       end else if (sclk_falling_edge && 
-                  (current_state_q == ST_SEND_COMMAND || 
-                   current_state_q == ST_SEND_ADDR_BYTE1 || 
-                   current_state_q == ST_SEND_ADDR_BYTE2 ||
-                   current_state_q == ST_SEND_DATA_BYTE1)) begin
+                    (current_state_q == ST_SEND_COMMAND || 
+                     current_state_q == ST_SEND_ADDR_BYTE1 ||
+                     current_state_q == ST_SEND_ADDR_BYTE2 ||
+                     current_state_q == ST_SEND_DATA_BYTE1)) begin
         mosi_shift_reg_q <= {mosi_shift_reg_q[6:0], 1'b0}; // Shift left, MSB sent first
       end
       
@@ -190,12 +195,20 @@ module spi_master #(
          (current_state_q == ST_RECEIVE_DATA_BYTE1 || current_state_q == ST_RECEIVE_DATA_BYTE2)) begin
         miso_shift_reg_q <= {miso_shift_reg_q[6:0], spi_miso_i};
       end
+
+      // Once the byte transfer is fully complete, clear the flag.
+      if (byte_transfer_complete) begin
+        last_bit_sampled_q <= 1'b0;
+        // When the slave samples the last bit, set the flag.
+      end else if (sclk_rising_edge && bit_counter_q == 3'd0) begin
+        last_bit_sampled_q <= 1'b1;
+       end
       
       // Latch received bytes
-      if (current_state_q == ST_RECEIVE_DATA_BYTE1 && bit_counter_q == 3'd0 && sclk_rising_edge) begin
+      if (current_state_q == ST_RECEIVE_DATA_BYTE1 && byte_transfer_complete) begin
         data_read_byte1_internal_r <= miso_shift_reg_q;
       end
-      if (current_state_q == ST_RECEIVE_DATA_BYTE2 && bit_counter_q == 3'd0 && sclk_rising_edge) begin
+      if (current_state_q == ST_RECEIVE_DATA_BYTE2 && byte_transfer_complete) begin
         data_read_byte2_internal_r <= miso_shift_reg_q;
       end
       
@@ -226,19 +239,19 @@ module spi_master #(
         // bit_counter_q reset handled by state transition logic below
       end
       ST_SEND_COMMAND: begin
-        if (sclk_rising_edge && bit_counter_q == 3'd0) begin // 8 bits sent
+        if (byte_transfer_complete) begin // 8 bits sent
           next_state_d = ST_SEND_ADDR_BYTE1;
           // bit_counter_q reset handled by state transition logic below
         end
       end
       ST_SEND_ADDR_BYTE1: begin
-        if (sclk_rising_edge && bit_counter_q == 3'd0) begin // 8 bits sent
+        if (byte_transfer_complete) begin // 8 bits sent
           next_state_d = ST_SEND_ADDR_BYTE2;
           // bit_counter_q reset handled by state transition logic below
         end
       end
       ST_SEND_ADDR_BYTE2: begin
-        if (sclk_rising_edge && bit_counter_q == 3'd0) begin // 8 bits sent
+        if (byte_transfer_complete) begin // 8 bits sent
           if (read_not_write_r) begin
             next_state_d = ST_RECEIVE_DATA_BYTE1;
           end else begin // WRITE
@@ -248,14 +261,14 @@ module spi_master #(
         end
       end
       ST_SEND_DATA_BYTE1: begin // For WRITE
-        if (sclk_rising_edge && bit_counter_q == 3'd0) begin // 8 bits sent
+        if (byte_transfer_complete) begin // 8 bits sent
           // Assuming 1 byte write based on num_bytes_to_transfer_r for now
           // If num_bytes_to_transfer_r == 2 for write, more states needed
           next_state_d = ST_END_TRANSACTION;
         end
       end
       ST_RECEIVE_DATA_BYTE1: begin // For READ
-        if (sclk_rising_edge && bit_counter_q == 3'd0) begin // 8 bits received
+        if (byte_transfer_complete) begin // 8 bits received
           if (num_bytes_to_transfer_r == 2'b01 || num_bytes_to_transfer_r == 2'b00 ) begin // 1 byte total
             next_state_d = ST_END_TRANSACTION;
           end else if (num_bytes_to_transfer_r == 2'b10) begin // 2 bytes total
@@ -267,7 +280,7 @@ module spi_master #(
         end
       end
       ST_RECEIVE_DATA_BYTE2: begin // For 2-byte READ
-        if (sclk_rising_edge && bit_counter_q == 3'd0) begin // 8 bits received
+        if (byte_transfer_complete) begin // 8 bits received
           next_state_d = ST_END_TRANSACTION;
         end
       end
@@ -286,7 +299,7 @@ module spi_master #(
   // Sequential assignment for bit_counter_q based on state transitions
   always @(posedge clk_core_i or negedge rst_n_i) begin
       if(!rst_n_i) begin
-          bit_counter_q <= 3'd7;
+        bit_counter_q <= 3'd7;
       end else begin
           if ((current_state_q == ST_IDLE && next_state_d == ST_START_TRANSACTION) || // About to start sending cmd
               (current_state_q == ST_SEND_COMMAND && next_state_d == ST_SEND_ADDR_BYTE1) || // Cmd sent, about to send addr1
@@ -294,7 +307,7 @@ module spi_master #(
               (current_state_q == ST_SEND_ADDR_BYTE2 && (next_state_d == ST_SEND_DATA_BYTE1 || next_state_d == ST_RECEIVE_DATA_BYTE1)) || // Addr2 sent, about to send/recv data1
               (current_state_q == ST_RECEIVE_DATA_BYTE1 && next_state_d == ST_RECEIVE_DATA_BYTE2) // Data1 recvd, about to recv data2
              ) begin
-              bit_counter_q <= 3'd7; // Reset for next 8-bit phase
+            bit_counter_q <= 3'd7; // Reset for next 8-bit phase
           end else if (sclk_rising_edge && 
              (current_state_q == ST_SEND_COMMAND || 
               current_state_q == ST_SEND_ADDR_BYTE1 || 
@@ -310,5 +323,4 @@ module spi_master #(
           end
       end
   end
-
 endmodule
