@@ -1,90 +1,236 @@
-# test_spi_master_write_only.py
+# test_spi_master.py
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import Timer, RisingEdge
+from cocotb.triggers import Timer
+from cocotb.triggers import RisingEdge
 
-# Vital helper function to reset the DUT
-async def reset_dut(dut):
-    """Applies reset to the DUT."""
-    dut.rst_n_i.value = 1
-    await Timer(10, units="ns")
-    dut.rst_n_i.value = 0
-    await Timer(20, units="ns")
-    dut.rst_n_i.value = 1
-    await Timer(10, units="ns")
-    dut._log.info("Reset complete")
-
-# Vital helper function to run a complete transaction
-async def run_transaction(dut, address, read_not_write, num_bytes, data_to_write=0):
-    """Starts and waits for a single SPI transaction to complete."""
-    op_str = "READ" if read_not_write else "WRITE"
-    dut._log.info(f"--- Starting transaction: {op_str} {num_bytes} byte(s) at addr {address:#06x} ---")
-    if not read_not_write:
-        dut._log.info(f"      - Data to write: {data_to_write:#04x}")
-
-    # Wait for the DUT to be ready
-    await RisingEdge(dut.clk_core_i)
-    assert not dut.busy_o.value, "DUT is busy at the start of a new transaction"
-
-    # Set up transaction parameters
-    dut.address_i.value = address
-    dut.read_not_write_i.value = read_not_write
-    dut.num_bytes_to_transfer_i.value = num_bytes
-    dut.data_to_write_i.value = data_to_write
-
-    # Start the transaction with a single-cycle pulse
-    dut.start_transaction_i.value = 1
-    await RisingEdge(dut.clk_core_i)
-    dut.start_transaction_i.value = 0
-    
-    # Wait for the transaction to be acknowledged and completed
-    await RisingEdge(dut.busy_o)
-    dut._log.info("Transaction started (busy is high). Waiting for completion...")
-    
-    await RisingEdge(dut.transaction_done_o)
-    dut._log.info("Transaction done pulse detected.")
-    
-    # Ensure the DUT is no longer busy
-    await RisingEdge(dut.clk_core_i)
-    assert not dut.busy_o.value, "DUT should not be busy after transaction is done"
-    dut._log.info(f"--- Transaction finished (busy is low) ---")
+# Make sure you have your reset_dut and SlaveMemory helpers available
+from test_helpers import SlaveMemory, reset_dut, run_transaction
 
 @cocotb.test()
-async def test_spi_write(dut):
-    """Test a single-byte WRITE operation."""
-    # Start the clock
+async def backdoor_memory(dut):
+    # 1. Start the clock
     cocotb.start_soon(Clock(dut.clk_core_i, 10, units="ns").start())
+    dut._log.info("Clock started")
 
-    # Reset the DUT
+    # 2. Reset the DUT to put it in a known state
     await reset_dut(dut)
-    
-    # Test Case: Write 0x42 to 0xBEEF
-    addr = 0xBEEF
-    data_to_write = 0x42
-    
-    await run_transaction(dut, address=addr, read_not_write=0, num_bytes=1, data_to_write=data_to_write)
-    
-    await Timer(50, units="ns") # Wait a bit for simulation to end cleanly
-    dut._log.info("Write test complete.")
+    dut._log.info("DUT Reset")
+
+    # 3. Now, you can safely interact with the design
+    slave_mem = SlaveMemory(memory_signal=dut.SLAVE.memory, log=dut._log)
+
+    data_to_write = [0xDE, 0xAD, 0xBE, 0xEF]
+    slave_mem.write(0x1000, data_to_write)
+
+    # Let simulation advance a tiny bit to be safe
+    await Timer(1, units="ns")
+
+    read_back_data = slave_mem.read(0x1000, 4)
+
+    # This assertion should now pass
+    assert read_back_data == data_to_write
+    dut._log.info("SUCCESS: Read-back data matches written data.")
 
 @cocotb.test()
-async def test_spi_read(dut):
-    """Test single-byte and two-byte READ operations."""
-    # Start the clock and reset the DUT
+async def test_read_preloaded(dut):
+    """
+    Test 1: Verify the DUT's READ command against a known value
+              that was set via the backdoor.
+    """
+    # --- Test Setup ---
+    # 1. Start the clock
     cocotb.start_soon(Clock(dut.clk_core_i, 10, units="ns").start())
+    dut._log.info("Clock started for test_read_preloaded")
+
+    # 2. Reset the DUT
     await reset_dut(dut)
 
-    # --- Test Case 1: Single-Byte Read ---
-    addr = 0xBEEF
-    expected_byte1 = 0x42 # This value is pre-loaded in the slave model
-    
-    await run_transaction(dut, address=addr, read_not_write=1, num_bytes=1)
-    
-    # Verify the received data
-    actual_byte1 = dut.data_read_byte1_o.value
-    dut._log.info(f"CHECK: Read from {addr:#06x}: got {actual_byte1}, expected {expected_byte1:#04x}")
-    assert actual_byte1 == expected_byte1, f"Read error! Got {actual_byte1}, expected {expected_byte1}"
+    # 3. Initialize the backdoor memory helper
+    slave_mem = SlaveMemory(memory_signal=dut.SLAVE.memory, log=dut._log)
 
-    await Timer(50, units="ns") # Wait a bit between transactions
+    # --- Parameterized Test Cases ---
+    # A list of dictionaries, where each dictionary defines one test run.
+    # The provided run_transaction helper supports reading up to 2 bytes.
+    test_cases = [
+        {"addr": 0x1234, "data": [0xAB]},
+        {"addr": 0x5000, "data": [0xCA, 0xFE]},
+        {"addr": 0x0000, "data": [0x55]},
+        {"addr": 0xFFFE, "data": [0x88, 0x99]}, # Test near the top of memory
+        {"addr": 0x2040, "data": [0x01, 0x02]},
+    ]
 
-    dut._log.info("Read test complete.")
+    # --- Run Test Loop ---
+    for i, case in enumerate(test_cases):
+        test_addr = case["addr"]
+        data_to_preload = case["data"]
+        num_bytes_to_read = len(data_to_preload)
+
+        dut._log.info(f"--- Running Test Case #{i}: Read {num_bytes_to_read} byte(s) from addr {test_addr:#06x} ---")
+
+        # 1. Use the backdoor to write a known value into the slave's memory
+        slave_mem.write(test_addr, data_to_preload)
+        dut._log.info(f"Preloaded memory at {test_addr:#06x} with {[hex(d) for d in data_to_preload]}")
+
+        # Add a small delay for the write to settle before starting the read
+        await RisingEdge(dut.clk_core_i)
+
+        # 2. Use the DUT to READ from that same address via the SPI master interface
+        read_data_from_dut = await run_transaction(
+            dut,
+            address=test_addr,
+            read_bytes=num_bytes_to_read
+        )
+
+        # 3. Assert that the data returned by the DUT matches the original value
+        assert read_data_from_dut == data_to_preload, \
+            f"Mismatch in test case #{i}! Expected {[hex(d) for d in data_to_preload]}, Got {[hex(d) for d in read_data_from_dut]}"
+
+        dut._log.info(f"SUCCESS for test case #{i}: Read data matches preloaded value.")
+
+        # Wait a few cycles between transactions for cleaner waves
+        for _ in range(5):
+            await RisingEdge(dut.clk_core_i)
+
+@cocotb.test()
+async def test_write_and_backdoor_check(dut):
+    """
+    Test 3: Verify the DUT's WRITE command by checking with backdoor access.
+
+    This test commands the DUT to write data, then uses backdoor access
+    to the slave's memory to verify the data was written correctly.
+    This isolates the DUT's write functionality for testing.
+    """
+    # --- Test Setup ---
+    # 1. Start the clock
+    cocotb.start_soon(Clock(dut.clk_core_i, 10, units="ns").start())
+    dut._log.info("Clock started for test_write_and_backdoor_check")
+
+    # 2. Reset the DUT
+    await reset_dut(dut)
+
+    # 3. Initialize the backdoor memory helper
+    slave_mem = SlaveMemory(memory_signal=dut.SLAVE.memory, log=dut._log)
+    dut._log.info("DUT Reset and SlaveMemory helper initialized.")
+
+    # --- Parameterized Test Cases ---
+    test_cases = [
+        {"addr": 0x1000, "data": [0xAA, 0x55]},
+        {"addr": 0xBEEF, "data": [0x12, 0x34, 0x56, 0x78]},
+        {"addr": 0x0000, "data": [0x01]},
+        {"addr": 0xFFF0, "data": [0xF0, 0xE1, 0xD2, 0xC3]},
+    ]
+
+    # --- Run Test Loop ---
+    for i, case in enumerate(test_cases):
+        start_addr = case["addr"]
+        data_to_write = case["data"]
+        num_bytes = len(data_to_write)
+
+        dut._log.info(f"--- Running Test Case #{i}: DUT Write at addr {start_addr:#06x}, verify with backdoor ---")
+
+        # 1. Use the DUT to WRITE data using single-byte transactions
+        for byte_index, byte_value in enumerate(data_to_write):
+            current_addr = start_addr + byte_index
+            dut._log.info(f"  DUT Writing byte {byte_index+1}/{num_bytes}: {hex(byte_value)} to addr {current_addr:#06x}")
+            await run_transaction(
+                dut,
+                address=current_addr,
+                write_data=[byte_value]
+            )
+            await RisingEdge(dut.clk_core_i)
+
+        # Wait a moment for writes to settle
+        await Timer(1, units="ns")
+
+        # 2. Use the BACKDOOR to read the data directly from the slave's memory
+        dut._log.info(f"  Backdoor reading {num_bytes} bytes from start addr {start_addr:#06x}")
+        read_back_data = slave_mem.read(start_addr, num_bytes)
+
+        # 3. Assert that the data read via the backdoor matches the data written by the DUT
+        assert read_back_data == data_to_write, \
+            f"MISMATCH in test case #{i}! DUT wrote {[hex(d) for d in data_to_write]}, but backdoor read {[hex(d) for d in read_back_data]}"
+
+        dut._log.info(f"SUCCESS for test case #{i}: Backdoor data matches DUT-written data.")
+
+        # Wait a few cycles before the next test case
+        for _ in range(5):
+            await RisingEdge(dut.clk_core_i)
+
+
+@cocotb.test()
+async def test_write_read_cycle(dut):
+    """
+    Test 2: Verify the full round-trip WRITE then READ cycle.
+
+    This test uses the DUT's SPI master interface for both writing
+    and reading. It respects the DUT constraint of writing only one
+    byte per transaction by sequencing multi-byte writes.
+    """
+    # --- Test Setup ---
+    # 1. Start the clock
+    cocotb.start_soon(Clock(dut.clk_core_i, 10, units="ns").start())
+    dut._log.info("Clock started for test_write_read_cycle")
+
+    # 2. Reset the DUT
+    await reset_dut(dut)
+    dut._log.info("DUT Reset")
+
+    # --- Parameterized Test Cases ---
+    # A list of dictionaries, where each dictionary defines one test run.
+    # Each case specifies a start address and the data to write/read.
+    test_cases = [
+        {"addr": 0x2000, "data": [0xDE, 0xAD]},
+        {"addr": 0xCAFE, "data": [0xBE, 0xEF]},
+        {"addr": 0x0001, "data": [0xFF]},
+        {"addr": 0xFFFF, "data": [0x00]}, # Test edges of memory map
+        {"addr": 0x8765, "data": [0x43, 0x21]},
+    ]
+
+    # --- Run Test Loop ---
+    for i, case in enumerate(test_cases):
+        start_addr = case["addr"]
+        data_to_write = case["data"]
+        num_bytes = len(data_to_write)
+
+        dut._log.info(f"--- Running Test Case #{i}: Write/Read {num_bytes} byte(s) at start addr {start_addr:#06x} ---")
+
+        # 1. Use the DUT to WRITE a known value to the slave via the SPI master interface.
+        # Since the DUT can only write one byte per transaction, we loop for multi-byte data,
+        # incrementing the address for each byte.
+        dut._log.info(f"DUT Write to {start_addr:#06x} with data {[hex(d) for d in data_to_write]}")
+        for byte_index, byte_value in enumerate(data_to_write):
+            current_addr = start_addr + byte_index
+            dut._log.info(f"  Writing byte {byte_index+1}/{num_bytes}: {hex(byte_value)} to addr {current_addr:#06x}")
+            await run_transaction(
+                dut,
+                address=current_addr,
+                write_data=[byte_value]  # Pass a list containing the single byte
+            )
+            # Small delay between consecutive write transactions
+            await RisingEdge(dut.clk_core_i)
+
+
+        # Wait a few clock cycles for the transaction sequence to fully complete and
+        # to create a clean visual separation in the waveform dump before the read.
+        for _ in range(10):
+            await RisingEdge(dut.clk_core_i)
+
+        # 2. Use the DUT to READ from the start address via the SPI master interface.
+        # The read operation can fetch all the bytes written in the previous steps.
+        dut._log.info(f"DUT Read {num_bytes} bytes from start addr {start_addr:#06x}")
+        read_data_from_dut = await run_transaction(
+            dut,
+            address=start_addr,
+            read_bytes=num_bytes
+        )
+
+        # 3. Assert that the data read back by the DUT matches the original written data
+        assert read_data_from_dut == data_to_write, \
+            f"MISMATCH in test case #{i}! Wrote {[hex(d) for d in data_to_write]}, but read {[hex(d) for d in read_data_from_dut]}"
+
+        dut._log.info(f"SUCCESS for test case #{i}: Read-back data matches written data.")
+
+        # Wait a few more cycles before the next test case
+        for _ in range(5):
+            await RisingEdge(dut.clk_core_i)

@@ -1,26 +1,23 @@
 [*]
 [*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
-[*] Sat Jul 26 01:37:20 2025
+[*] Tue Jul 29 19:52:19 2025
 [*]
 [dumpfile] "/home/zerotoasic/manquehuito/test/test_spi/dump.vcd"
-[dumpfile_mtime] "Sat Jul 26 01:11:24 2025"
-[dumpfile_size] 9951
+[dumpfile_mtime] "Tue Jul 29 18:07:50 2025"
+[dumpfile_size] 10439
 [savefile] "/home/zerotoasic/manquehuito/test/test_spi/spi_analysis.gtkw"
-[timestart] 0
+[timestart] 141000
 [size] 1850 863
 [pos] -27 -24
-*-16.200001 340000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-17.400002 461001 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb_spi.
 [sst_width] 297
-[signals_width] 324
+[signals_width] 344
 [sst_expanded] 1
 [sst_vpaned_height] 249
 @28
 tb_spi.DUT.clk_core_i
 tb_spi.DUT.spi_sclk_o
-tb_spi.DUT.sclk_rising_edge
-@29
-tb_spi.DUT.sclk_falling_edge
 @24
 tb_spi.DUT.bit_counter_q[2:0]
 @c02022
@@ -37,9 +34,6 @@ tb_spi.DUT.current_state_q[3:0]
 (3)tb_spi.DUT.current_state_q[3:0]
 @1401200
 -group_end
-@2022
-^1 /home/zerotoasic/manquehuito/test/test_spi/fsm_states.map
-tb_spi.DUT.next_state_d[3:0]
 @200
 -
 @28
