@@ -1,0 +1,82 @@
+[*]
+[*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
+[*] Sun Aug 17 20:50:43 2025
+[*]
+[dumpfile] "/home/zerotoasic/manquehuito/test/test_manquehuito/dump.vcd"
+[dumpfile_mtime] "Sun Aug 17 20:47:42 2025"
+[dumpfile_size] 93538
+[savefile] "/home/zerotoasic/manquehuito/test/test_manquehuito/inc_analysis.gtkw"
+[timestart] 3271580
+[size] 1530 826
+[pos] -27 -24
+*-12.900001 3290000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] tb.
+[treeopen] tb.dut.
+[sst_width] 297
+[signals_width] 457
+[sst_expanded] 1
+[sst_vpaned_height] 237
+@2022
+^1 /home/zerotoasic/manquehuito/test/test_manquehuito/ctrl_states.map
+tb.dut.i_ctrl.state_q[3:0]
+@23
+tb.dut.pc_out[7:0]
+@200
+-
+@28
+tb.dut.i_ctrl.spi_address_o[15:0]
+@200
+-
+@c00022
+tb.dut.i_ctrl.instruction_r[14:0]
+@28
+(0)tb.dut.i_ctrl.instruction_r[14:0]
+(1)tb.dut.i_ctrl.instruction_r[14:0]
+(2)tb.dut.i_ctrl.instruction_r[14:0]
+(3)tb.dut.i_ctrl.instruction_r[14:0]
+(4)tb.dut.i_ctrl.instruction_r[14:0]
+(5)tb.dut.i_ctrl.instruction_r[14:0]
+(6)tb.dut.i_ctrl.instruction_r[14:0]
+(7)tb.dut.i_ctrl.instruction_r[14:0]
+(8)tb.dut.i_ctrl.instruction_r[14:0]
+(9)tb.dut.i_ctrl.instruction_r[14:0]
+(10)tb.dut.i_ctrl.instruction_r[14:0]
+(11)tb.dut.i_ctrl.instruction_r[14:0]
+(12)tb.dut.i_ctrl.instruction_r[14:0]
+(13)tb.dut.i_ctrl.instruction_r[14:0]
+(14)tb.dut.i_ctrl.instruction_r[14:0]
+@1401200
+-group_end
+@200
+-
+@28
+tb.dut.i_ctrl.spi_read_not_write_o
+tb.dut.i_ctrl.mux_d_sel_o
+tb.dut.i_ctrl.reg_a_load_o
+tb.dut.i_ctrl.reg_b_load_o
+tb.dut.i_ctrl.mux_a_sel_o[1:0]
+tb.dut.i_ctrl.mux_b_sel_o[1:0]
+tb.dut.i_ctrl.alu_sel_o[2:0]
+@200
+-
+@22
+tb.dut.i_alu.a_i[7:0]
+tb.dut.i_alu.b_i[7:0]
+@200
+-
+@28
+tb.dut.i_mux_b.sel_i[1:0]
+@22
+tb.dut.spi_data_read_byte1[7:0]
+tb.dut.i_mux_b.out_o[7:0]
+@200
+-
+@22
+tb.dut.i_alu.out_o[7:0]
+@200
+-
+@22
++{Reg A Value} tb.dut.i_reg_a.out_o[7:0]
++{Reg B Value} tb.dut.i_reg_b.out_o[7:0]
+[pattern_trace] 1
+[pattern_trace] 0

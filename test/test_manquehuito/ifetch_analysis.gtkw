@@ -1,0 +1,75 @@
+[*]
+[*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
+[*] Sun Aug 17 15:21:21 2025
+[*]
+[dumpfile] "/home/zerotoasic/manquehuito/test/test_manquehuito/dump.vcd"
+[dumpfile_mtime] "Sun Aug 17 15:13:20 2025"
+[dumpfile_size] 33607
+[savefile] "/home/zerotoasic/manquehuito/test/test_manquehuito/ifetch_analysis.gtkw"
+[timestart] 5864730
+[size] 1530 826
+[pos] -27 -24
+*-13.800000 3295870 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] tb.
+[treeopen] tb.dut.
+[sst_width] 297
+[signals_width] 436
+[sst_expanded] 1
+[sst_vpaned_height] 254
+@28
+tb.dut.i_ctrl.clk_i
+tb.dut.i_ctrl.rst_n_i
+@2022
+^1 /home/zerotoasic/manquehuito/test/test_manquehuito/ctrl_states.map
+tb.dut.i_ctrl.state_q[2:0]
+@22
+tb.dut.i_ctrl.spi_address_o[15:0]
+@28
+tb.dut.i_ctrl.spi_start_o
+tb.dut.i_ctrl.spi_num_bytes_o[1:0]
+tb.dut.i_ctrl.spi_done_i
+@200
+-
+-
+@2022
+^2 /home/zerotoasic/manquehuito/test/test_spi/fsm_states.map
+tb.dut.i_spi_master.current_state_q[3:0]
+@28
+tb.dut.i_spi_master.start_transaction_i
+@22
+tb.dut.i_spi_master.address_i[15:0]
+@200
+-
+@28
+tb.dut.i_ctrl.spi_read_not_write_o
+tb.dut.i_ctrl.mux_d_sel_o
+tb.dut.i_ctrl.reg_a_load_o
+tb.dut.i_ctrl.reg_b_load_o
+tb.dut.i_ctrl.mux_a_sel_o[1:0]
+tb.dut.i_ctrl.mux_b_sel_o[1:0]
+@29
+tb.dut.i_ctrl.alu_sel_o[2:0]
+@200
+-
+@22
+tb.dut.i_spi_master.data_read_byte1_o[7:0]
+tb.dut.i_spi_master.data_read_byte2_o[7:0]
+@28
+tb.dut.i_spi_master.transaction_done_o
+tb.dut.i_spi_master.busy_o
+@200
+-
+@22
+tb.dut.i_reg_a.out_o[7:0]
+@200
+-
+@28
+tb.dut.i_pc.clk_i
+@22
+tb.dut.i_pc.pc_o[7:0]
+@200
+-
+@22
+tb.dut.i_ctrl.instruction_r[14:0]
+[pattern_trace] 1
+[pattern_trace] 0

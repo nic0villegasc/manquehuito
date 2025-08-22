@@ -33,7 +33,7 @@ module pc (
          pc_o <= pc_o; // Do nothing, hold the current value
          // If not loading and not stalling, do the default increment
        end else begin
-         pc_o <= pc_o + 1;
+         pc_o <= pc_o + 2;
        end
      end
    end

@@ -22,7 +22,7 @@ module manquehuito_domain (
 
   // --- Internal Wires and Registers ---
   logic [7:0]  pc_out;
-  logic [7:0]  reg_a_out, reg_b_out;
+  logic [7:0]  reg_a_out, reg_b_out, mdr_out;
   logic [7:0]  mux_a_out, mux_b_out, mux_d_out;
   logic [7:0]  alu_out;
   logic [3:0]  alu_zncv;
@@ -30,7 +30,7 @@ module manquehuito_domain (
 
    logic       cpu_stall_o;
    logic       pc_load_o;
-   logic       reg_a_load_o, reg_b_load_o;
+   logic       reg_a_load_o, reg_b_load_o, reg_mdr_load_o, status_load_o;
    logic [1:0] mux_a_sel_o, mux_b_sel_o;
    logic       mux_d_sel_o;
    logic [2:0] alu_sel_o;
@@ -39,7 +39,6 @@ module manquehuito_domain (
   // SPI Master Interface Signals
   logic        spi_start;
   logic [15:0] spi_address;
-  logic [7:0]  spi_data_write;
   logic        spi_read_not_write;
   logic [1:0]  spi_num_bytes;
   wire  [7:0]  spi_data_read_byte1;
@@ -74,7 +73,6 @@ module manquehuito_domain (
                         .spi_data_read_byte2_i(spi_data_read_byte2),
                         .spi_start_o(spi_start),
                         .spi_address_o(spi_address),
-                        .spi_data_write_o(spi_data_write),
                         .spi_read_not_write_o(spi_read_not_write),
                         .spi_num_bytes_o(spi_num_bytes),
 
@@ -83,10 +81,13 @@ module manquehuito_domain (
                         .pc_load_o(pc_load_o),
                         .reg_a_load_o(reg_a_load_o),
                         .reg_b_load_o(reg_b_load_o),
+                        .reg_mdr_load_o(reg_mdr_load_o),
+                        .status_load_o(status_load_o),
                         .mux_a_sel_o(mux_a_sel_o),
                         .mux_b_sel_o(mux_b_sel_o),
                         .mux_d_sel_o(mux_d_sel_o),
-                        .alu_sel_o(alu_sel_o)
+                        .alu_sel_o(alu_sel_o),
+                        .instruction_o(current_instruction_r)
                         );
 
   // Registers A and B are unchanged
@@ -104,6 +105,13 @@ module manquehuito_domain (
     .out_o(reg_b_out)
   );
 
+  register i_mdr (
+    .clk_i(clk_core_i),
+    .load_i(reg_mdr_load_o),
+    .data_i(spi_data_read_byte1), // Input is the SPI data
+    .out_o(mdr_out)
+  );
+
   // MUXes A and D are modified to use the new instruction register
   muxA i_mux_a (
     .e0_i(reg_a_out),
@@ -117,7 +125,7 @@ module manquehuito_domain (
   // MUX B sources are changed
   muxB i_mux_b (
     .e0_i(reg_b_out),
-    .e1_i(spi_data_read_byte1),      // Data from SPI for LOADs
+    .e1_i(mdr_out),      // Data from SPI for LOADs
     .e2_i(current_instruction_r[7:0]), // Immediate from new instruction reg
     .e3_i(8'h00),
     .sel_i(mux_b_sel_o),
@@ -143,6 +151,7 @@ module manquehuito_domain (
 
   status i_status (
     .clk_i(clk_core_i),
+    .load_en_i(status_load_o),
     .zncv_i(alu_zncv),
     .out_o(status_out)
   );
@@ -156,7 +165,7 @@ module manquehuito_domain (
     .rst_n_i                  (rst_n_i),
     .start_transaction_i      (spi_start),
     .address_i                (spi_address),
-    .data_to_write_i          (spi_data_write),
+    .data_to_write_i          (alu_out),
     .read_not_write_i         (spi_read_not_write),
     .num_bytes_to_transfer_i  (spi_num_bytes),
     .data_read_byte1_o        (spi_data_read_byte1),

@@ -1,0 +1,8 @@
+<testsuites name="results">
+  <testsuite name="all" package="all">
+    <property name="random_seed" value="1755482913" />
+    <testcase name="test_complex_program_flow" classname="test_manquehuito" file="/home/zerotoasic/manquehuito/test/test_manquehuito/test_manquehuito.py" lineno="1087" time="1.2532835006713867" sim_time_ns="89470.001" ratio_time="71388.4775089361">
+      <failure message="Test failed with RANDOM_SEED=1755482913" />
+    </testcase>
+  </testsuite>
+</testsuites>
