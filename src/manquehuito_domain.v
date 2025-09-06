@@ -11,36 +11,36 @@
 //              master to access external instruction and data memory.
 // -----------------------------------------------------------------------------
 module manquehuito_domain (
-  input  logic clk_core_i,
-  input  logic rst_n_i,
+  input clk_core_i,
+  input rst_n_i,
 
-  output logic spi_sclk_o,
-  output logic spi_mosi_o,
-  output logic spi_cs_o,
-  input  logic spi_miso_i
+  output wire spi_sclk_o,
+  output wire spi_mosi_o,
+  output wire spi_cs_o,
+  input spi_miso_i
 );
 
   // --- Internal Wires and Registers ---
-  logic [7:0]  pc_out;
-  logic [7:0]  reg_a_out, reg_b_out, mdr_out;
-  logic [7:0]  mux_a_out, mux_b_out, mux_d_out;
-  logic [7:0]  alu_out;
-  logic [3:0]  alu_zncv;
-  logic [3:0]  status_out;
+  wire [7:0]  pc_out;
+  wire [7:0]  reg_a_out, reg_b_out, mdr_out;
+  wire [7:0]  mux_a_out, mux_b_out, mux_d_out;
+  wire [7:0]  alu_out;
+  wire [3:0]  alu_zncv;
+  wire [3:0]  status_out;
 
-   logic       cpu_stall_o;
-   logic       pc_load_o;
-   logic       reg_a_load_o, reg_b_load_o, reg_mdr_load_o, status_load_o;
-   logic [1:0] mux_a_sel_o, mux_b_sel_o;
-   logic       mux_d_sel_o;
-   logic [2:0] alu_sel_o;
-   logic [14:0] current_instruction_r;
+   wire       cpu_stall_o;
+   wire       pc_load_o;
+   wire       reg_a_load_o, reg_b_load_o, reg_mdr_load_o, status_load_o;
+   wire [1:0] mux_a_sel_o, mux_b_sel_o;
+   wire       mux_d_sel_o;
+   wire [2:0] alu_sel_o;
+   wire [14:0] current_instruction;
 
   // SPI Master Interface Signals
-  logic        spi_start;
-  logic [15:0] spi_address;
-  logic        spi_read_not_write;
-  logic [1:0]  spi_num_bytes;
+  wire        spi_start;
+  wire [15:0] spi_address;
+  wire        spi_read_not_write;
+  wire [1:0]  spi_num_bytes;
   wire  [7:0]  spi_data_read_byte1;
   wire  [7:0]  spi_data_read_byte2;
   wire         spi_done;
@@ -52,7 +52,7 @@ module manquehuito_domain (
     .rst_n_i(rst_n_i),
     .stall_i(cpu_stall_o),
     .load_i(pc_load_o),
-    .im_i(current_instruction_r[7:0]), // Jump address from new instruction reg
+    .im_i(current_instruction[7:0]), // Jump address from new instruction reg
     .pc_o(pc_out)
   );
 
@@ -87,7 +87,7 @@ module manquehuito_domain (
                         .mux_b_sel_o(mux_b_sel_o),
                         .mux_d_sel_o(mux_d_sel_o),
                         .alu_sel_o(alu_sel_o),
-                        .instruction_o(current_instruction_r)
+                        .instruction_r(current_instruction)
                         );
 
   // Registers A and B are unchanged
@@ -126,7 +126,7 @@ module manquehuito_domain (
   muxB i_mux_b (
     .e0_i(reg_b_out),
     .e1_i(mdr_out),      // Data from SPI for LOADs
-    .e2_i(current_instruction_r[7:0]), // Immediate from new instruction reg
+    .e2_i(current_instruction[7:0]), // Immediate from new instruction reg
     .e3_i(8'h00),
     .sel_i(mux_b_sel_o),
     .out_o(mux_b_out)
@@ -134,7 +134,7 @@ module manquehuito_domain (
 
   // MUX D source is changed
   muxD i_mux_d (
-    .e0_i(current_instruction_r[7:0]), // Address from new instruction reg
+    .e0_i(current_instruction[7:0]), // Address from new instruction reg
     .e1_i(reg_b_out),
     .sel_i(mux_d_sel_o),
     .out_o(mux_d_out)

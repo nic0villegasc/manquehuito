@@ -13,33 +13,33 @@
 //              decode, execution, and SPI-based memory access.
 // -----------------------------------------------------------------------------
 module control_unit (
-  input logic         clk_i,
-  input logic         rst_n_i,
-  input logic [7:0]   pc_i,
-  input logic [7:0]   reg_b_in_i,
-  input logic [7:0]   mux_d_out_i,
-  input logic [3:0]   zncv_i,
+  input         clk_i,
+  input         rst_n_i,
+  input [7:0]   pc_i,
+  input [7:0]   reg_b_in_i,
+  input [7:0]   mux_d_out_i,
+  input [3:0]   zncv_i,
 
-  input logic         spi_done_i,
-  input logic         spi_busy_i,
-  input logic [7:0]   spi_data_read_byte1_i,
-  input logic [7:0]   spi_data_read_byte2_i,
-  output logic        spi_start_o,
-  output logic [15:0] spi_address_o,
-  output logic        spi_read_not_write_o,
-  output logic [1:0]  spi_num_bytes_o,
+  input         spi_done_i,
+  input         spi_busy_i,
+  input [7:0]   spi_data_read_byte1_i,
+  input [7:0]   spi_data_read_byte2_i,
+  output reg        spi_start_o,
+  output reg [15:0] spi_address_o,
+  output reg        spi_read_not_write_o,
+  output reg [1:0]  spi_num_bytes_o,
 
-  output logic        cpu_stall_o,
-  output logic        pc_load_o,
-  output logic        reg_a_load_o,
-  output logic        reg_b_load_o,
-  output logic        reg_mdr_load_o,
-  output logic        status_load_o,
-  output logic [1:0]  mux_a_sel_o,
-  output logic [1:0]  mux_b_sel_o,
-  output logic        mux_d_sel_o,
-  output logic [2:0]  alu_sel_o,
-  output logic [14:0] instruction_o
+  output reg        cpu_stall_o,
+  output reg        pc_load_o,
+  output reg        reg_a_load_o,
+  output reg        reg_b_load_o,
+  output reg        reg_mdr_load_o,
+  output reg        status_load_o,
+  output reg [1:0]  mux_a_sel_o,
+  output reg [1:0]  mux_b_sel_o,
+  output reg        mux_d_sel_o,
+  output reg [2:0]  alu_sel_o,
+  output reg [14:0] instruction_r
 );
 
    // Define parameters for ALU operations for readability
@@ -68,26 +68,22 @@ module control_unit (
    localparam MUX_D_SEL_IMEM = 1'b0; // Selects Instruction Memory
    localparam MUX_D_SEL_REGB = 1'b1; // Selects Register B
 
-   typedef enum logic [3:0] {
-                            RESET,
-                            IFETCH_START,
-                            IFETCH_WAIT,
-                            DECODE_EXECUTE,
-                            MEM_ACCESS_START,
-                            MEM_ACCESS_WAIT,
-                            MEM_WRITE_START,
-                            MEM_WRITE_WAIT,
-                            EXECUTE_MEM_OP
-                            } state_t;
+   localparam [3:0] RESET            = 4'd0,
+                 IFETCH_START     = 4'd1,
+                 IFETCH_WAIT      = 4'd2,
+                 DECODE_EXECUTE   = 4'd3,
+                 MEM_ACCESS_START = 4'd4,
+                 MEM_ACCESS_WAIT  = 4'd5,
+                 MEM_WRITE_START  = 4'd6,
+                 MEM_WRITE_WAIT   = 4'd7,
+                 EXECUTE_MEM_OP   = 4'd8;
 
-   state_t state_q, state_d;
+   reg [3:0] state_q;
+   reg [3:0] state_d;
 
-   reg [14:0] instruction_r;
    reg [15:0] sp_q, sp_d;
 
-   assign instruction_o = instruction_r;
-
-   always_ff @(posedge clk_i or negedge rst_n_i) begin
+   always @(posedge clk_i or negedge rst_n_i) begin
      if(!rst_n_i) begin
        state_q       <= RESET;
        sp_q          <= 16'hFFFF;
@@ -106,7 +102,7 @@ module control_unit (
 
    end // always_ff @ (posedge clk_i or negedge rst_n_i)
 
-   always_comb begin
+   always begin
      state_d              = state_q;
      sp_d                 = sp_q;
 
@@ -1707,6 +1703,9 @@ module control_unit (
            7'b1001010: begin // INC (B)
              mux_d_sel_o   = MUX_D_SEL_REGB; // Address is from Register B
              status_load_o = 1'b1;
+           end
+           
+           default: begin
            end
 
          endcase // case (instruction_r[14:8])

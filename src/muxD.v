@@ -13,14 +13,14 @@
 //              memory and register B based on 1-bit control.
 // -----------------------------------------------------------------------------
 module muxD (
-  input  logic [7:0] e0_i,   // Option 0: Instruction Memory
-  input  logic [7:0] e1_i,   // Option 1: Register B
-  input  logic       sel_i,  // Select signal
-  output logic [7:0] out_o   // Selected output
+  input [7:0] e0_i,   // Option 0: Instruction Memory
+  input [7:0] e1_i,   // Option 1: Register B
+  input       sel_i,  // Select signal
+  output reg [7:0] out_o   // Selected output
 );
 
-  always_comb begin
-    unique case (sel_i)
+  always begin
+    case (sel_i)
       1'b0: out_o = e0_i;
       1'b1: out_o = e1_i;
     endcase
