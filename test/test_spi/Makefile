@@ -4,7 +4,7 @@ VERILOG_PATH = ../../src
 
 # --- Simulation Variables ---
 TOPLEVEL_LANG ?= verilog
-VERILOG_SOURCES = $(VERILOG_PATH)/spi_master.v tb_spi.v
+VERILOG_SOURCES = $(VERILOG_PATH)/spi_master.sv tb_spi.v
 TOPLEVEL = tb_spi
 MODULE = test_spi_master
 

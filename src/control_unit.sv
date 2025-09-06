@@ -250,6 +250,16 @@ module control_unit (
              mux_b_sel_o   = 2'b10; // Input B from Immediate
              alu_sel_o     = 3'b001; // OP: A - B
            end
+           7'b0001010: begin // SUB A, Lit
+             pc_load_o     = 1'b0;
+             reg_a_load_o  = 1'b1;
+             reg_b_load_o  = 1'b0;
+             status_load_o = 1'b1;
+
+             mux_a_sel_o   = MUX_A_SEL_REGA; // Input A from Register A
+             mux_b_sel_o   = 2'b10; // Input B from Immediate
+             alu_sel_o     = 3'b001; // OP: A - B
+           end
            7'b0001011: begin // SUB B, Lit
              pc_load_o     = 1'b0;
              reg_a_load_o  = 1'b0;

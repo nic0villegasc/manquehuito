@@ -412,6 +412,90 @@ async def test_program_flow(dut):
 
     dut._log.info("Program flow test passed!")
 
+import cocotb
+from cocotb.clock import Clock
+from cocotb.triggers import RisingEdge
+
+# Assuming 'reset_dut' and 'SlaveMemory' are defined elsewhere in your test setup
+# from your_test_utils import reset_dut, SlaveMemory
+
+@cocotb.test()
+async def test_mov_sub_program(dut):
+    """
+    Tests a 3-instruction program flow:
+    1. MOV A, 0x2A      ; Load immediate value into Reg A
+    2. SUB A, 0x01      ; Subtract immediate value from Reg A
+    3. MOV (0x51), A    ; Store result from Reg A into memory
+    """
+
+    # 1. Setup: Assemble the program and define the test data
+
+    # Define memory location for the result
+    result_addr = 0x51
+
+    # Define test values
+    initial_literal_a = 0x2A
+    sub_literal = 0x01
+    expected_result = initial_literal_a - sub_literal  # 0x2A - 0x01 = 0x29
+
+    # Assemble the program instruction by instruction
+    # [Opcode, Literal/Address]
+    program = [
+        [0b0000010, initial_literal_a],  # MOV A, Lit
+        [0b0001010, sub_literal],        # SUB A, Lit
+        [0b0100111, result_addr],        # MOV (Dir), A
+    ]
+
+    # Convert the program into a stream of bytes for memory
+    program_bytes = []
+    for opcode, operand in program:
+        # This encoding seems specific to your 'manquehuito' core.
+        # It's preserved from your original testbench.
+        instruction_word = (opcode << 8) | operand
+        byte1 = (instruction_word >> 7) & 0xFF
+        byte2 = instruction_word & 0x7F
+        program_bytes.extend([byte1, byte2])
+
+    dut._log.info("--- Test MOV/SUB Program ---")
+    dut._log.info(f"Program will be loaded at address 0x00.")
+    dut._log.info(f"Initial literal for Reg A: {initial_literal_a:#04x}")
+    dut._log.info(f"Literal to subtract: {sub_literal:#04x}")
+    dut._log.info(f"Expected result at Mem[{result_addr:#04x}]: {expected_result:#04x}")
+
+    # 2. Pre-load State: Write the program to memory
+    # Assuming SlaveMemory is a helper class to handle memory interactions
+    slave_mem = SlaveMemory(dut.SLAVE.memory, dut._log) 
+    cocotb.start_soon(Clock(dut.clk_core_i, 10, units="ns").start())
+
+    # Write program starting at PC = 0
+    slave_mem.write(0, program_bytes)
+    # Ensure the result location is initially zero to prevent false positives
+    slave_mem.write(result_addr, [0x00])
+
+    # 3. Execution: Reset the DUT and let it run the program
+    await reset_dut(dut)
+
+    # We expect 4 SPI transactions for this program:
+    # - 3 Instruction Fetches
+    # - 1 Data Write (for MOV (Dir), A)
+    num_transactions = 4
+    for i in range(num_transactions):
+        await RisingEdge(dut.dut.i_spi_master.transaction_done_o)
+        dut._log.info(f"SPI Transaction {i+1}/{num_transactions} complete.")
+    
+    # Wait a few extra cycles for the final write-back to stabilize
+    for _ in range(5):
+        await RisingEdge(dut.clk_core_i)
+
+    # 4. Verification: Read back the result from memory and check it
+    final_value_in_mem = slave_mem.read(result_addr, 1)[0]
+    dut._log.info(f"Final value read from Mem[{result_addr:#04x}]: {final_value_in_mem:#04x}")
+
+    assert final_value_in_mem == expected_result, \
+        f"Program failed! Expected {expected_result:#04x}, got {final_value_in_mem:#04x}"
+
+    dut._log.info("MOV/SUB program test passed!")
+
 @cocotb.test()
 async def test_load_and_add_direct(dut):
     """
@@ -1121,25 +1205,28 @@ async def test_complex_program_flow(dut):
     # Each instruction is 2 bytes: [Opcode, Literal/Address]
     # Program addresses are calculated assuming each instruction takes 2 bytes.
     program = [
-        # Opcode,      Operand,    # Address | Instruction        ; Comment
-        [0b0100110, counter_addr],  # 0x00    | MOV B, (0x60)      ; Load counter value into B
-        [0b0000010, 0x00],          # 0x02    | MOV A, 0           ; Clear accumulator A
-        [0b0000100, 0x00],          # 0x04    | ADD A, B           ; LOOP_START: Add B to A
-        [0b0001011, 0x01],          # 0x06    | SUB B, 1           ; Decrement counter B
-        [0b1001111, 0x00],          # 0x08    | CMP B, 0           ; Compare B with 0
-        [0b1010101, 0x04],          # 0x0A    | JNE 0x04           ; If B != 0, jump to LOOP_START
-        [0b0011010, 0xFF],          # 0x0C    | XOR A, 0xFF        ; Invert all bits in the result
-        [0b0011100, 0x00],          # 0x0E    | SHL A, A           ; Shift result left by 1
-        [0b0100111, result_addr],   # 0x10    | MOV (0x61), A      ; Store final result in memory
-        [0b0100100, 0x00],          # 0x12    | INC B              ; Extra instruction (B becomes 1)
-        [0b1010011, 0x14],          # 0x14    | JMP 0x14           ; Halt processor in infinite loop
+        # Opcode,      Operand,        # Address | Instruction         ; Comment
+        [0b0100110, counter_addr],  # 0x00    | MOV B, (0x60)     ; Load counter value into B
+        [0b0000010, 0x00],          # 0x02    | MOV A, 0            ; Clear accumulator A
+        [0b0000100, 0x00],          # 0x04    | ADD A, B            ; LOOP_START: Add B to A
+        [0b0001011, 0x01],          # 0x06    | SUB B, 1            ; Decrement counter B
+        [0b1001111, 0x00],          # 0x08    | CMP B, 0            ; Compare B with 0
+        [0b1010101, 0x04],          # 0x0A    | JNE 0x04            ; If B != 0, jump to LOOP_START
+        [0b0011010, 0xFF],          # 0x0C    | XOR A, 0xFF         ; Invert all bits in the result
+        [0b0011100, 0x00],          # 0x0E    | SHL A, A            ; Shift result left by 1
+        [0b0100111, result_addr],   # 0x10    | MOV (0x61), A     ; Store final result in memory
+        [0b0100100, 0x00],          # 0x12    | INC B               ; Extra instruction (B becomes 1)
+        [0b1010011, 0x14],          # 0x14    | JMP 0x14            ; Halt processor in infinite loop
     ]
 
     # Convert the program into a stream of bytes for memory
-    # Assuming a simple encoding: [byte_opcode, byte_operand]
+    # This version uses bit-packing to correctly format the 15-bit instruction word.
     program_bytes = []
     for opcode, operand in program:
-        program_bytes.extend([opcode, operand])
+        instruction_word = (opcode << 8) | operand
+        byte1 = (instruction_word >> 7) & 0xFF
+        byte2 = instruction_word & 0x7F
+        program_bytes.extend([byte1, byte2])
 
     dut._log.info("--- Test Complex Program Flow ---")
     dut._log.info(f"Program will be loaded at address 0x00.")
@@ -1182,6 +1269,7 @@ async def test_complex_program_flow(dut):
     for i in range(num_transactions):
         # This trigger needs to be adapted to your specific DUT's signal
         # that indicates a memory/bus transaction has finished.
+        # Example path: dut.dut.i_spi_master.transaction_done_o
         await RisingEdge(dut.dut.i_spi_master.transaction_done_o)
         dut._log.info(f"SPI Transaction {i+1}/{num_transactions} complete.")
 
@@ -1197,4 +1285,105 @@ async def test_complex_program_flow(dut):
     assert final_value_in_mem == expected_result, \
         f"Complex program flow failed! Expected {expected_result:#04x}, but got {final_value_in_mem:#04x}"
 
-    dut._log.info("Complex program flow test passed successfully! ✅")
+    dut._log.info("Complex program flow test passed successfully!")
+
+@cocotb.test()
+async def test_find_max_in_array(dut):
+    """
+    Tests a program that finds the maximum value in an array of 5 bytes.
+    (Corrected version that properly saves and restores the array pointer).
+    """
+
+    # 1. Setup: Assemble the program and define test data
+
+    # Define memory locations for data
+    array_start_addr = 0x70
+    array_len_addr   = 0x80
+    result_addr      = 0x81 # Will store the max value found
+    counter_addr     = 0x82 # Temp storage for the loop counter
+    ptr_addr         = 0x83 # Temp storage for the array pointer
+
+    # Define test data
+    test_array = [0x0A, 0x32, 0x19, 0x63, 0x1E] # [10, 50, 25, 99, 30]
+    array_len  = len(test_array)
+    expected_result = 0x63 # 99 is the max value
+
+    # Assemble the program instruction by instruction
+    program = [
+        # Opcode,    Operand,           # Address | Instruction         ; Comment
+        [0b0000011, array_start_addr], # 0x00 | MOV B, 0x70           ; B = Address of array start
+        [0b0101001, 0x00],             # 0x02 | MOV A, (B)          ; A = First element of array
+        [0b0100111, result_addr],        # 0x04 | MOV (0x81), A       ; Store initial max value
+        [0b0100101, array_len_addr],   # 0x06 | MOV A, (0x80)       ; A = array_len (5)
+        [0b0001010, 0x01],             # 0x08 | SUB A, 1            ; Decrement counter (handled 1st element)
+        # --- LOOP_START (Address 0x0A) ---
+        [0b1001110, 0x00],             # 0x0A | CMP A, 0            ; Check if counter is zero
+        [0b1010100, 0x2C],             # 0x0C | JEQ 0x2C            ; If zero, jump to HALT
+        [0b0100111, counter_addr],       # 0x0E | MOV (0x82), A       ; Save counter to memory
+        [0b0100100, 0x00],             # 0x10 | INC B               ; Increment array pointer
+        [0b0101001, 0x00],             # 0x12 | MOV A, (B)          ; A = next element from array
+        [0b0100111, ptr_addr],         # 0x14 | MOV (0x83), B       ; *** FIX: Save pointer before clobbering B ***
+        [0b0100110, result_addr],        # 0x16 | MOV B, (0x81)       ; B = current max_value (B is clobbered)
+        [0b1001101, 0x00],             # 0x18 | CMP A, B            ; Compare new_element(A) with max_value(B)
+        [0b1010110, 0x22],             # 0x1A | JGT 0x22            ; If new > max, jump to UPDATE
+        [0b1010011, 0x24],             # 0x1C | JMP 0x24            ; Else, jump straight to RESUME
+        # --- UPDATE (Address 0x22) ---
+        [0b0100111, result_addr],        # 0x22 | MOV (0x81), A       ; Update max_value with new element
+        # --- RESUME_LOOP (Address 0x24) ---
+        [0b0100110, ptr_addr],         # 0x24 | MOV B, (0x83)       ; *** FIX: Restore pointer ***
+        [0b0100101, counter_addr],       # 0x26 | MOV A, (0x82)       ; Restore counter from memory
+        [0b1010011, 0x0A],             # 0x2A | JMP 0x0A            ; Jump to LOOP_START
+        # --- HALT (Address 0x2C) ---
+        [0b1010011, 0x2C],             # 0x2C | JMP 0x2C            ; Halt processor in infinite loop
+    ]
+
+    program_bytes = []
+    for opcode, operand in program:
+        instruction_word = (opcode << 8) | operand
+        byte1 = (instruction_word >> 7) & 0xFF
+        byte2 = instruction_word & 0x7F
+        program_bytes.extend([byte1, byte2])
+
+    dut._log.info("--- Test Find Max Value in Array (Corrected) ---")
+    dut._log.info(f"Program will be loaded at address 0x00.")
+    dut._log.info(f"Expected max value at Mem[{result_addr:#04x}]: {expected_result:#04x}")
+
+    # 2. Pre-load State
+    slave_mem = SlaveMemory(dut.SLAVE.memory, dut._log)
+    cocotb.start_soon(Clock(dut.clk_core_i, 10, units="ns").start())
+    slave_mem.write(0, program_bytes)
+    slave_mem.write(array_start_addr, test_array)
+    slave_mem.write(array_len_addr, [array_len])
+    slave_mem.write(result_addr, [0x00])
+    slave_mem.write(counter_addr, [0x00])
+    slave_mem.write(ptr_addr, [0x00])
+
+    # 3. Execution
+    await reset_dut(dut)
+
+    # Calculation for the corrected, longer program:
+    # - Initial Setup (5 instructions): 1+2+2+2+1 = 8
+    # - Loop Body (runs 4 times, 12 instructions per loop):
+    #   - Each loop has 8 fetches, 2 mem writes, 2 mem reads.
+    #   - Total transactions per loop = 8 + 2*2 + 2*2 = 16
+    #   - 4 loops * 16 transactions/loop = 64
+    # - Final Check (2 instructions before halt): 1+1 = 2
+    # TOTAL = 8 + 64 + 2 = 74 transactions
+    num_transactions = 74
+
+    dut._log.info(f"Waiting for {num_transactions} SPI transactions to complete...")
+    for i in range(num_transactions):
+        await RisingEdge(dut.dut.i_spi_master.transaction_done_o)
+        dut._log.info(f"SPI Transaction {i+1}/{num_transactions} complete.")
+
+    for _ in range(10):
+        await RisingEdge(dut.clk_core_i)
+
+    # 4. Verification
+    final_value_in_mem = slave_mem.read(result_addr, 1)[0]
+    dut._log.info(f"Final value read from Mem[{result_addr:#04x}]: {final_value_in_mem:#04x}")
+
+    assert final_value_in_mem == expected_result, \
+        f"Find max value test failed! Expected {expected_result:#04x}, but got {final_value_in_mem:#04x}"
+
+    dut._log.info("Find max value test passed successfully!")
