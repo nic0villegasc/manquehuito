@@ -19,7 +19,7 @@ module manquehuito_domain (
   output logic spi_cs_o,
   input  logic spi_miso_i
 );
-
+ 
   // --- Internal Wires and Registers ---
   logic [7:0]  pc_out;
   logic [7:0]  reg_a_out, reg_b_out, mdr_out;
@@ -46,6 +46,22 @@ module manquehuito_domain (
   wire         spi_done;
   wire         spi_busy;
 
+   // --- Wires for Address Decoder Logic ---
+   wire        is_peripheral_access;      // Becomes true if address is 0xF0 or higher
+   wire        spi_start_gated;           // The start signal that will go to the real SPI master
+   wire        spi_done_combined;         // The done signal that will go back to the control unit
+
+   // --- Wires for the PWM Peripheral ---
+   wire        pwm_cs;                    // Chip select signal specifically for the PWM
+   wire        PMOS1_PAD_O, NMOS2_PAD_O, PMOS2_PAD_O, NMOS1_PAD_O; // Physical PWM outputs
+
+  // --- Address Decoder Implementation ---
+
+   assign is_peripheral_access = (spi_address[7:4] == 4'hF);
+   assign pwm_cs = spi_start && is_peripheral_access && (spi_address[3:2] == 2'b01);
+   assign spi_start_gated = spi_start && !is_peripheral_access;
+   assign spi_done_combined = spi_done || (spi_start && is_peripheral_access);
+
   // --- Sub-module Instantiations ---
   pc i_pc (
     .clk_i(clk_core_i),
@@ -67,7 +83,7 @@ module manquehuito_domain (
                         .zncv_i(status_out),
 
                         // SPI Master Interface
-                        .spi_done_i(spi_done),
+                        .spi_done_i(spi_done_combined),
                         .spi_busy_i(spi_busy),
                         .spi_data_read_byte1_i(spi_data_read_byte1),
                         .spi_data_read_byte2_i(spi_data_read_byte2),
@@ -163,7 +179,7 @@ module manquehuito_domain (
   ) i_spi_master (
     .clk_core_i               (clk_core_i),
     .rst_n_i                  (rst_n_i),
-    .start_transaction_i      (spi_start),
+    .start_transaction_i      (spi_start_gated),
     .address_i                (spi_address),
     .data_to_write_i          (alu_out),
     .read_not_write_i         (spi_read_not_write),
@@ -177,4 +193,20 @@ module manquehuito_domain (
     .spi_miso_i               (spi_miso_i),
     .spi_cs_o                 (spi_cs_o)
   );
+
+
+   ps_pwm_wrapper i_ps_pwm (
+                            .clk_i(clk_core_i),
+                            .rst_n_i(rst_n_i),
+                            .cs_i(pwm_cs),                          // Connect the specific cs signal from the decoder
+                            .write_en_i(!spi_read_not_write),       // Write enable is active when not reading
+                            .addr_lsb_i(spi_address[1:0]),          // Pass the LSBs for internal register selection
+                            .data_in_i(alu_out),                    // Data to write comes from the ALU's output
+     
+                            .pmos1_o(PMOS1_PAD_O),
+                            .nmos2_o(NMOS2_PAD_O),
+                            .pmos2_o(PMOS2_PAD_O),
+                            .nmos1_o(NMOS1_PAD_O)
+                            );
+
 endmodule : manquehuito_domain

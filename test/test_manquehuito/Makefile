@@ -17,6 +17,11 @@ VERILOG_SOURCES = ../../src/manquehuito_domain.sv \
                   ../../src/muxA.sv \
                   ../../src/muxB.sv \
                   ../../src/muxD.sv \
+									../../src/ps_pwm_wrapper.v \
+									../../src/dead_time_generator.v \
+									../../src/comparator.v \
+									../../src/signal_generator_0phase.v \
+									../../src/signal_generator_180phase.v \
                   tb_manquehuito.sv
 
 # The name of the top-level module in your testbench
