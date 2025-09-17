@@ -12,16 +12,16 @@
 // Description: 8-bit Program Counter with load enable and increment logic
 // -----------------------------------------------------------------------------
 module pc (
-           input logic        clk_i,   // Clock input
-           input logic        rst_n_i, // Asynchronous reset
-           input logic        stall_i, // Stall signal
-           input logic        load_i,  // Load enable (for jumps)
-           input logic [7:0]  im_i,    // Immediate input for load
-           output logic [7:0] pc_o     // Program counter output
+           input        clk_i,   // Clock input
+           input        rst_n_i, // Asynchronous reset
+           input        stall_i, // Stall signal
+           input        load_i,  // Load enable (for jumps)
+           input [7:0]  im_i,    // Immediate input for load
+           output reg [7:0] pc_o     // Program counter output
            );
 
    // Note: Added negedge rst_n_i for proper asynchronous reset
-   always_ff @(posedge clk_i or negedge rst_n_i) begin
+   always @(posedge clk_i or negedge rst_n_i) begin
      if(!rst_n_i) begin
        pc_o <= 8'b0;
      end else begin

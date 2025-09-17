@@ -12,13 +12,13 @@
 // Description: 8-bit register with load enable and synchronous reset to 0
 // -----------------------------------------------------------------------------
 module register (
-  input  logic        clk_i,   // Clock input
-  input  logic        load_i,  // Load enable
-  input  logic [7:0]  data_i,  // Input data
-  output logic [7:0]  out_o    // Output register value
+  input        clk_i,   // Clock input
+  input        load_i,  // Load enable
+  input [7:0]  data_i,  // Input data
+  output reg [7:0]  out_o    // Output register value
 );
 
-  always_ff @(posedge clk_i) begin
+  always @(posedge clk_i) begin
     if (load_i) begin
       out_o <= data_i;
     end

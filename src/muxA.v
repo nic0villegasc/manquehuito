@@ -13,16 +13,16 @@
 //              constant 1, constant 0, and RegB depending on 2-bit control.
 // -----------------------------------------------------------------------------
 module muxA (
-  input  logic [7:0] e0_i,   // Option 0: Register A
-  input  logic [7:0] e1_i,   // Option 1: Constant 1
-  input  logic [7:0] e2_i,   // Option 2: Constant 0
-  input  logic [7:0] e3_i,   // Option 3: Register B
-  input  logic [1:0] sel_i,  // Select signal
-  output logic [7:0] out_o   // Selected output
+  input [7:0] e0_i,   // Option 0: Register A
+  input [7:0] e1_i,   // Option 1: Constant 1
+  input [7:0] e2_i,   // Option 2: Constant 0
+  input [7:0] e3_i,   // Option 3: Register B
+  input [1:0] sel_i,  // Select signal
+  output reg [7:0] out_o   // Selected output
 );
 
-  always_comb begin
-    unique case (sel_i)
+  always begin
+    case (sel_i)
       2'b00: out_o = e0_i;
       2'b01: out_o = e1_i;
       2'b10: out_o = e2_i;

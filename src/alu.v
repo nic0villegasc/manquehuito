@@ -13,24 +13,24 @@
 //              Outputs result and ZNCV flags: Zero, Negative, Carry, Overflow.
 // -----------------------------------------------------------------------------
 module alu (
-  input  logic [7:0]  a_i,
-  input  logic [7:0]  b_i,
-  input  logic [2:0]  sel_i,
-  output logic [7:0]  out_o,
-  output logic [3:0]  zncv_o
+  input [7:0]  a_i,
+  input [7:0]  b_i,
+  input [2:0]  sel_i,
+  output reg [7:0]  out_o,
+  output reg [3:0]  zncv_o
 );
 
-  logic [8:0] result_ext;
-  logic       carry, overflow;
+  reg [8:0] result_ext;
+  reg       carry, overflow;
 
-  always_comb begin
+  always begin
     // Default values
     result_ext = 9'b0;
     carry      = 1'b0;
     overflow   = 1'b0;
     out_o      = 8'b0;
 
-    unique case (sel_i)
+    case (sel_i)
       3'b000: begin // ADD
         result_ext = a_i + b_i;
         out_o      = result_ext[7:0];
