@@ -12,7 +12,7 @@ module ps_pwm_wrapper (
                        output      nmos2_o,
                        output      pmos2_o,
                        output      nmos1_o
-                       ;)
+                       );
 
   // Internal registers to hold PWM configuration
   reg [6:0] d1_reg;
@@ -46,35 +46,35 @@ module ps_pwm_wrapper (
 
    wire [6:0] triangular_0;
    Signal_Generator_0phase Signal_Generator_1_0phase_inst(
-                                                          CLK_PRIMARY,
-                                                          RST,
+                                                          clk_i,
+                                                          ~rst_n_i,
                                                           triangular_0
                                                           );
 
    wire [6:0] triangular_180;
    Signal_Generator_180phase Signal_Generator_1_180phase_inst(
-                                                              CLK_PRIMARY,
-                                                              RST,
+                                                              clk_i,
+                                                              ~rst_n_i,
                                                               triangular_180
                                                               );
 
    wire Output_Comparison_1;
-   Comparator Comparator_Inst_1(
-                                d1,
-                                triangular_0,
-                                Output_Comparison_1
-                                );
+   Comparator i_comp1 (
+                       .in1(d1_reg),
+                       .in2(triangular_0),
+                       .comparison(Output_Comparison_1)
+                       );
 
    wire Output_Comparison_2;
-   Comparator Comparator_Inst_2(
-                                d2,
-                                triangular_180,
-                                Output_Comparison_2
-                                );
+   Comparator i_comp2 (
+                       .in1(d2_reg),
+                       .in2(triangular_180),
+                       .comparison(Output_Comparison_2)
+                       );
 
    wire pmos1_prev; 
    Dead_Time_Generator Dead_Time_Generator_inst_1(
-                                                  CLK_PRIMARY,
+                                                  clk_i,
                                                   dt,
                                                   Output_Comparison_1,
                                                   pmos1_prev
@@ -84,7 +84,7 @@ module ps_pwm_wrapper (
    wire nmos2_prev;
    assign Not_Output_Comparison_1 = ~Output_Comparison_1;
    Dead_Time_Generator Dead_Time_Generator_inst_2(
-                                                  CLK_PRIMARY,
+                                                  clk_i,
                                                   dt,
                                                   Not_Output_Comparison_1,
                                                   nmos2_prev
@@ -92,7 +92,7 @@ module ps_pwm_wrapper (
 
    wire pmos2_prev;
    Dead_Time_Generator Dead_Time_Generator_inst_3(
-                                                  CLK_PRIMARY,
+                                                  clk_i,
                                                   dt,
                                                   Output_Comparison_2,
                                                   pmos2_prev
@@ -102,15 +102,15 @@ module ps_pwm_wrapper (
    wire nmos1_prev;
    assign Not_Output_Comparison_2 = ~Output_Comparison_2;
    Dead_Time_Generator Dead_Time_Generator_inst_4(
-                                                  CLK_PRIMARY,
+                                                  clk_i,
                                                   dt,
                                                   Not_Output_Comparison_2,
                                                   nmos1_prev
                                                   );
 
-   assign PMOS1 = ENABLE_OUTPUT ? ~pmos1_prev : 1;
-   assign NMOS2 = ENABLE_OUTPUT ? nmos2_prev : 0;
-   assign PMOS2 = ENABLE_OUTPUT ? ~pmos2_prev : 1;
-   assign NMOS1 = ENABLE_OUTPUT ? nmos1_prev : 0;
+   assign pmos1_o = enable_output ? ~pmos1_prev : 1;
+   assign nmos2_o = enable_output ? nmos2_prev : 0;
+   assign pmos2_o = enable_output ? ~pmos2_prev : 1;
+   assign nmos1_o = enable_output ? nmos1_prev : 0;
 
 endmodule

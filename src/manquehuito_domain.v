@@ -11,15 +11,16 @@
 //              master to access external instruction and data memory.
 // -----------------------------------------------------------------------------
 module manquehuito_domain (
-  input clk_core_i,
-  input rst_n_i,
+  input       clk_core_i,
+  input       rst_n_i,
 
   output wire spi_sclk_o,
   output wire spi_mosi_o,
   output wire spi_cs_o,
-  input spi_miso_i
+  input       spi_miso_i,
+  output wire PMOS1_PAD_O, NMOS2_PAD_O, PMOS2_PAD_O, NMOS1_PAD_O
 );
- 
+
   // --- Internal Wires and Registers ---
   wire [7:0]  pc_out;
   wire [7:0]  reg_a_out, reg_b_out, mdr_out;
@@ -53,14 +54,24 @@ module manquehuito_domain (
 
    // --- Wires for the PWM Peripheral ---
    wire        pwm_cs;                    // Chip select signal specifically for the PWM
-   wire        PMOS1_PAD_O, NMOS2_PAD_O, PMOS2_PAD_O, NMOS1_PAD_O; // Physical PWM outputs
+
+   reg         peripheral_done_delayed; 
 
   // --- Address Decoder Implementation ---
 
    assign is_peripheral_access = (spi_address[7:4] == 4'hF);
    assign pwm_cs = spi_start && is_peripheral_access && (spi_address[3:2] == 2'b01);
    assign spi_start_gated = spi_start && !is_peripheral_access;
-   assign spi_done_combined = spi_done || (spi_start && is_peripheral_access);
+   assign spi_done_combined = spi_done || peripheral_done_delayed;
+
+   always @(posedge clk_core_i or negedge rst_n_i) begin
+     if (!rst_n_i) begin
+       peripheral_done_delayed <= 1'b0;
+     end else begin
+       // On each clock edge, capture the current status of the peripheral access signal
+       peripheral_done_delayed <= (spi_start && is_peripheral_access);
+     end
+   end
 
   // --- Sub-module Instantiations ---
   pc i_pc (
@@ -202,7 +213,7 @@ module manquehuito_domain (
                             .write_en_i(!spi_read_not_write),       // Write enable is active when not reading
                             .addr_lsb_i(spi_address[1:0]),          // Pass the LSBs for internal register selection
                             .data_in_i(alu_out),                    // Data to write comes from the ALU's output
-     
+
                             .pmos1_o(PMOS1_PAD_O),
                             .nmos2_o(NMOS2_PAD_O),
                             .pmos2_o(PMOS2_PAD_O),
